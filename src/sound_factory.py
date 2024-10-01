@@ -1,6 +1,7 @@
 import numpy as np
 import src.utils as utils
 from collections import OrderedDict
+from scipy.io import wavfile
 
 
 class Timeline:
@@ -97,6 +98,10 @@ class SoundWaveFactory:
 
     cahe = OrderedDict()
 
+    # Probably enum is another good option for this
+    SAVE_TYPE_TXT = "TXT"
+    SAVE_TYPE_WAV = "WAV"
+
     def __init__(
         self,
         *,
@@ -141,6 +146,70 @@ class SoundWaveFactory:
             amplitude = self.max_amplitude
 
         return self.__get_from_cache_or_add(duration_seconds, note, amplitude)
+
+    def save_wave(self, sound_wave, file_name=None, type=SAVE_TYPE_TXT):
+        """
+        a method to save wave into np.array txt by default and into WAV file if parameter "type='WAV'" is provided
+
+        Do not provide the file extension or directory path in the file_name parameter, just the file name.
+        extension is automatically txt or wav
+
+        All txt files are saved in the "sound_text_files" folder in the root directory, and all wav files are saved
+        in the "sound_wav_files" folder in the root directory.
+
+        Name of
+
+        :raises ValueError: if type parameter is not 'TXT' or 'WAV'
+
+        """
+
+        file_name = self.__generate_file_name(sound_wave, file_name, type)
+        if type == self.SAVE_TYPE_TXT:
+            np.savetxt(file_name, sound_wave.sound_wave)
+        elif type == self.SAVE_TYPE_WAV:
+            wavfile.write(file_name, self.sampling_rate, sound_wave.sound_wave)
+        else:
+            raise ValueError("type parameter should be 'TXT' or 'WAV'")
+
+
+    def normalize_sound_waves(self, sound_waves):
+        """
+        a method to normalize_sound_waves several waves: in both length (to the shortest file) and amplitude (according to the amplitude attribute)
+
+        I decided to use average amplitude and the shortest wave to normalize all sound waves.
+        I hope this was meant by the task.
+        """
+
+        # find the average amplitude and the shortest wave
+        average_amplitude = sum([sound_wave.amplitude for sound_wave in sound_waves]) / len(sound_waves)
+        shortest_wave = min(sound_waves, key=lambda sound_wave: len(sound_wave.sound_wave))
+        
+        # create a new list of normalized sound waves
+        normalized_sound_waves = []
+        
+        for sound_wave in sound_waves:
+            new_sound_duration = len(shortest_wave.sound_wave)
+            new_amplitude = average_amplitude
+            new_sound_wave = self.get_soundwave(sound_wave.timeline, sound_wave.note, new_amplitude)
+            normalized_sound_waves.append(new_sound_wave)
+        
+        return normalized_sound_waves
+
+    def __generate_file_name(self, sound_wave, file_name, type):
+        # default name is sound_wave_note_duration_seconds_amplitude
+        if not file_name:
+            file_name = f"sound_wave_{sound_wave.note}_{sound_wave.timeline.duration_seconds}_{sound_wave.amplitude}"
+
+        if type == self.SAVE_TYPE_TXT:
+            return f"sound_text_files/{file_name}.txt".replace("#", "s")
+        elif type == self.SAVE_TYPE_WAV:
+            return f"sound_wav_files/{file_name}.wav".replace("#", "s")
+        else:
+            raise ValueError("type parameter should be 'TXT' or 'WAV'")
+
+    
+    
+    
 
     def __get_from_cache_or_add(self, duration_seconds, note, amplitude):
         """
