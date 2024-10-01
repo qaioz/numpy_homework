@@ -1,46 +1,241 @@
 import numpy as np
+import src.utils as utils
+from collections import OrderedDict
 from scipy.io import wavfile
 
-SAMPLING_RATE = 44100  # like 44.1 KHz
-DURATION_SECONDS = 5
-SOUND_ARRAY_LEN = SAMPLING_RATE * DURATION_SECONDS
-MAX_AMPLITUDE = 2 ** 13
 
-# From a list of https://en.wikipedia.org/wiki/Piano_key_frequencies
-NOTES = {
-    '0': 0, 'e0': 20.60172, 'f0': 21.82676, 'f#0': 23.12465, 'g0': 24.49971, 'g#0': 25.95654, 'a0': 27.50000, 'a#0': 29.13524,
-    'b0': 30.86771, 'c0': 32.70320, 'c#0': 34.64783, 'd0': 36.70810, 'd#0': 38.89087,
-    'e1': 41.20344, 'f1': 43.65353, 'f#1': 46.24930, 'g1': 48.99943, 'g#1': 51.91309, 'a1': 55.00000, 'a#1': 58.27047,
-    'b1': 61.73541, 'c1': 65.40639, 'c#1': 69.29566, 'd1': 73.41619, 'd#1': 77.78175,
-    'e2': 82.40689, 'f2': 87.30706, 'f#2': 92.49861, 'g2': 97.99886, 'g#2': 103.8262, 'a2': 110.0000, 'a#2': 116.5409,
-    'b2': 123.4708, 'c2': 130.8128, 'c#2': 138.5913, 'd2': 146.8324, 'd#2': 155.5635,
-    'e3': 164.8138, 'f3': 174.6141, 'f#3': 184.9972, 'g3': 195.9977, 'g#3': 207.6523, 'a3': 220.0000, 'a#3': 233.0819,
-    'b3': 246.9417, 'c3': 261.6256, 'c#3': 277.1826, 'd3': 293.6648, 'd#3': 311.1270,
-    'e4': 329.6276, 'f4': 349.2282, 'f#4': 369.9944, 'g4': 391.9954, 'g#4': 415.3047, 'a4': 440.0000, 'a#4': 466.1638,
-    'b4': 493.8833, 'c4': 523.2511, 'c#4': 554.3653, 'd4': 587.3295, 'd#4': 622.2540,
-    'e5': 659.2551, 'f5': 698.4565, 'f#5': 739.9888, 'g5': 783.9909, 'g#5': 830.6094, 'a5': 880.0000, 'a#5': 932.3275,
-    'b5': 987.7666, 'c5': 1046.502, 'c#5': 1108.731, 'd5': 1174.659, 'd#5': 1244.508,
-    'e6': 1318.510, 'f6': 1396.913, 'f#6': 1479.978, 'g6': 1567.982, 'g#6': 1661.219, 'a6': 1760.000, 'a#6': 1864.655,
-    'b6': 1975.533, 'c6': 2093.005, 'c#6': 2217.461, 'd6': 2349.318, 'd#6': 2489.016,
-    'e7': 2637.020, 'f7': 2793.826, 'f#7': 2959.955, 'g7': 3135.963, 'g#7': 3322.438, 'a7': 3520.000, 'a#7': 3729.310,
-    'b7': 3951.066, 'c7': 4186.009, 'c#7': 4434.922, 'd7': 4698.636, 'd#7': 4978.032,
-}
+class Timeline:
+    def __init__(self, *, duration_seconds, sampling_rate):
+        self.duration_seconds = duration_seconds
+        self.sampling_rate = sampling_rate
+        self.timeline = np.linspace(
+            0, duration_seconds, num=sampling_rate * duration_seconds
+        )
+
+    def __str__(self) -> str:
+        return f"Timeline(duration_seconds={self.duration_seconds}, sampling_rate={self.sampling_rate})"
 
 
-get_normed_sin = lambda timeline, frequency: MAX_AMPLITUDE * np.sin(2 * np.pi * frequency * timeline)
-get_soundwave = lambda timeline, note: get_normed_sin(timeline, NOTES[note])
-common_timeline = np.linspace(0, DURATION_SECONDS, num=SOUND_ARRAY_LEN)
+class TimelineFactory:
+    """
+    This class is a factory for creating Timeline objects. It caches the created Timeline objects
+
+    Cache is a dictionary that maps (duration_seconds, sampling_rate) to Timeline objects
+    """
+
+    # to avoid memory leak, limit the cache size
+    CACHE_SIZE = 10**6
+
+    cache = OrderedDict()
+
+    @classmethod
+    def get_timeline(cls, *, duration_seconds, sampling_rate):
+        # check for cache hit
+        cache_key = cls.__get_cache_key(
+            duration_seconds=duration_seconds, sampling_rate=sampling_rate
+        )
+
+        if cache_key in cls.cache:
+            return cls.cache[cache_key]
+
+        # create a new timeline object and add it to the cache
+        timeline = Timeline(
+            duration_seconds=duration_seconds, sampling_rate=sampling_rate
+        )
+        cls.cache[cache_key] = timeline
+
+        # if the cache is full, remove the first item
+        if len(cls.cache) > cls.CACHE_SIZE:
+            cls.cache.popitem(last=False)
+
+        return timeline
+
+    @staticmethod
+    def __get_cache_key(*, duration_seconds, sampling_rate):
+        return (duration_seconds, sampling_rate)
 
 
-def create_note(note="a4", name=None, timeline: np.dtype("float64") = common_timeline):
-    sound_wave = get_soundwave(timeline, note).astype(np.int16)
-    if name is None:
-        file_name = f"{note}_sin.wav".replace("#", "s")
-    else:
-        file_name = f"{name}.wav"
-    wavfile.write(file_name, SAMPLING_RATE, sound_wave)
-    return sound_wave
+class SoundWave:
+    """
+    Class to represent a sound wave.
 
-if __name__ == "__main__":
-    a4 = create_note()
-    np.savetxt('a4_sin.txt', a4)  # https://numpy.org/doc/stable/reference/routines.io.html
+    Creating an underlying sound wave array is done eagerly in the constructor.
+
+    Homework task a "method to print any details you think will be important about the wave"
+    is implemented in the __str__ method, not in a SoundWaveFactory class.
+    """
+
+    def __init__(self, *, timeline, note, amplitude):
+        self.note = note
+        self.amplitude = amplitude
+        self.timeline = timeline
+
+        self.sound_wave = utils.get_soundwave(
+            timeline=self.timeline.timeline, note=self.note, amplitude=self.amplitude
+        ).astype(np.int16)
+
+    def __str__(self) -> str:
+        return f"SoundWave(note={self.note}, amplitude={self.amplitude}, timeline={self.timeline})"
+
+
+class SoundWaveFactory:
+    """
+    Factory class for creating SoundWave objects.
+
+    Similar to TimelineFactory, this class caches the created SoundWave objects.
+
+    Cached tuples are large, but I think caching is still good because attributes like
+    sampling_rate, amplitude, and duration_seconds are common across many SoundWave objects, and
+    the memory will not be increased by much.
+
+    The cache is limited to CACHE_SIZE to avoid memory leaks
+
+    """
+
+    # lru cahce of tuples (sampling_rate, note, amplitude, duration_seconds) to SoundWave objects
+
+    CACHE_SIZE = 10**6
+
+    cahe = OrderedDict()
+
+    # Probably enum is another good option for this
+    SAVE_TYPE_TXT = "TXT"
+    SAVE_TYPE_WAV = "WAV"
+
+    def __init__(
+        self,
+        *,
+        sampling_rate,
+        default_duration_seconds,
+        max_amplitude,
+        timeline_factory=None,
+    ):
+        """
+        param: sampling_rate: int: the sampling rate of the sound wave. Once set, you can not use the same
+        factory to create sound waves with different sampling rates.
+
+        param: default_duration_seconds: float: the default duration of the sound wave in seconds.
+        when you call create_wave without specifying the duration, this value will be used.
+
+        param: max_amplitude: int: the maximum amplitude of the sound wave. It is default amplitude
+        at the same time. You should not call create_wave with amplitude greater than this value.
+
+        param: timeline_factory: TimelineFactory: the factory to create Timeline objects. If None, a new
+        TimelineFactory object will be created.
+        """
+
+        self.sampling_rate = sampling_rate
+        self.default_duration_seconds = default_duration_seconds
+        self.max_amplitude = max_amplitude
+        if timeline_factory is None:
+            self.timeline_factory = TimelineFactory()
+
+    def get_soundwave(self, note="a4", duration_seconds=None, amplitude=None):
+        """
+        This function creates a SoundWave object with the given note, duration, and amplitude.
+
+        This is the similar function to create_note from the original SoundWaveFactory class.
+        I did not like the name create_note, so I changed it to create_wave.
+
+        Also, I moved the functionality of creating a txt and wav file to other functions.
+        """
+
+        if duration_seconds is None:
+            duration_seconds = self.default_duration_seconds
+        if amplitude is None:
+            amplitude = self.max_amplitude
+
+        return self.__get_from_cache_or_add(duration_seconds, note, amplitude)
+
+    def save_wave(self, sound_wave, file_name=None, type=SAVE_TYPE_TXT):
+        """
+        a method to save wave into np.array txt by default and into WAV file if parameter "type='WAV'" is provided
+
+        Do not provide the file extension or directory path in the file_name parameter, just the file name.
+        extension is automatically txt or wav
+
+        All txt files are saved in the "sound_text_files" folder in the root directory, and all wav files are saved
+        in the "sound_wav_files" folder in the root directory.
+
+        Name of
+
+        :raises ValueError: if type parameter is not 'TXT' or 'WAV'
+
+        """
+
+        file_name = self.__generate_file_name(sound_wave, file_name, type)
+        if type == self.SAVE_TYPE_TXT:
+            np.savetxt(file_name, sound_wave.sound_wave)
+        elif type == self.SAVE_TYPE_WAV:
+            wavfile.write(file_name, self.sampling_rate, sound_wave.sound_wave)
+        else:
+            raise ValueError("type parameter should be 'TXT' or 'WAV'")
+
+
+    def normalize_sound_waves(self, sound_waves):
+        """
+        a method to normalize_sound_waves several waves: in both length (to the shortest file) and amplitude (according to the amplitude attribute)
+
+        I decided to use average amplitude and the shortest wave to normalize all sound waves.
+        I hope this was meant by the task.
+        """
+
+        # find the average amplitude and the shortest wave
+        average_amplitude = sum([sound_wave.amplitude for sound_wave in sound_waves]) / len(sound_waves)
+        shortest_wave = min(sound_waves, key=lambda sound_wave: len(sound_wave.sound_wave))
+        
+        # create a new list of normalized sound waves
+        normalized_sound_waves = []
+        
+        for sound_wave in sound_waves:
+            new_sound_duration = len(shortest_wave.sound_wave)
+            new_amplitude = average_amplitude
+            new_sound_wave = self.get_soundwave(note=sound_wave.note, duration_seconds=new_sound_duration, amplitude=new_amplitude)
+            normalized_sound_waves.append(new_sound_wave)
+            
+        return normalized_sound_waves
+
+    def __generate_file_name(self, sound_wave, file_name, type):
+        # default name is sound_wave_note_duration_seconds_amplitude
+        if not file_name:
+            file_name = f"sound_wave_{sound_wave.note}_{sound_wave.timeline.duration_seconds}_{sound_wave.amplitude}"
+
+        if type == self.SAVE_TYPE_TXT:
+            return f"sound_text_files/{file_name}.txt".replace("#", "s")
+        elif type == self.SAVE_TYPE_WAV:
+            return f"sound_wav_files/{file_name}.wav".replace("#", "s")
+        else:
+            raise ValueError("type parameter should be 'TXT' or 'WAV'")
+        
+
+    def __get_from_cache_or_add(self, duration_seconds, note, amplitude):
+        """
+        just a helper function
+        """
+
+        # check for cache hit
+        cache_key = self.__get_cache_key(
+            duration_seconds=duration_seconds, note=note, amplitude=amplitude
+        )
+        if cache_key in self.cahe:
+            return self.cahe[cache_key]
+
+        #  create timeline object
+        timeline = self.timeline_factory.get_timeline(
+            duration_seconds=duration_seconds, sampling_rate=self.sampling_rate
+        )
+
+        # create a new sound wave object and add it to the cache
+        sound_wave = SoundWave(timeline=timeline, note=note, amplitude=amplitude)
+
+        self.cahe[cache_key] = sound_wave
+
+        # if the cache is full, remove the first item
+        if len(self.cahe) > self.CACHE_SIZE:
+            self.cahe.popitem(last=False)
+
+        return sound_wave
+
+    def __get_cache_key(self, *, duration_seconds, note, amplitude):
+        # I separated cache key function to avoid bugs and make the code more readable
+        return (self.sampling_rate, note, amplitude, duration_seconds)
