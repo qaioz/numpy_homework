@@ -8,7 +8,7 @@ def get_normed_sin(*, timeline, frequency, amplitude):
 
 def get_soundwave(*, timeline, note, amplitude):
 
-    return get_normed_sin(timeline, NOTES[note], amplitude=amplitude)
+    return get_normed_sin(timeline=timeline, frequency=NOTES[note], amplitude=amplitude)
 
 
 def create_timeline(*, duration_seconds, sampling_rate):
