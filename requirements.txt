@@ -1,0 +1,13 @@
+black @ file:///croot/black_1725573853246/work
+click @ file:///work/perseverance-python-buildout/croot/click_1698845879718/work
+mkl-service==2.4.0
+mkl_fft @ file:///croot/mkl_fft_1725370245198/work
+mkl_random @ file:///croot/mkl_random_1725370241878/work
+mypy-extensions @ file:///work/perseverance-python-buildout/croot/mypy_extensions_1698863276135/work
+numpy @ file:///croot/numpy_and_numpy_base_1708638617955/work/dist/numpy-1.26.4-cp312-cp312-linux_x86_64.whl#sha256=1d700f51d8b4fa684d858c9e3b56b1656bc5c82b6b79ff08d4e3b491c430059f
+packaging @ file:///croot/packaging_1720101850331/work
+pathspec @ file:///work/perseverance-python-buildout/croot/pathspec_1698805478393/work
+platformdirs @ file:///work/perseverance-python-buildout/croot/platformdirs_1701732573265/work
+scipy @ file:///croot/scipy_1717521478074/work/dist/scipy-1.13.1-cp312-cp312-linux_x86_64.whl#sha256=a60c1bdf983ee297b25e41830d00cc2af50f00bcb47e55578703fef1594ec56e
+setuptools==75.1.0
+wheel==0.44.0
