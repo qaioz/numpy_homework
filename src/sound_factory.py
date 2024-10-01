@@ -1,11 +1,6 @@
 import numpy as np
-from scipy.io import wavfile
 import src.utils as utils
 from collections import OrderedDict
-
-SAMPLING_RATE = 44100
-DURATION_SECONDS = 5
-MAX_AMPLITUDE = 2**13
 
 
 class Timeline:
