@@ -190,9 +190,9 @@ class SoundWaveFactory:
         for sound_wave in sound_waves:
             new_sound_duration = len(shortest_wave.sound_wave)
             new_amplitude = average_amplitude
-            new_sound_wave = self.get_soundwave(sound_wave.timeline, sound_wave.note, new_amplitude)
+            new_sound_wave = self.get_soundwave(note=sound_wave.note, duration_seconds=new_sound_duration, amplitude=new_amplitude)
             normalized_sound_waves.append(new_sound_wave)
-        
+            
         return normalized_sound_waves
 
     def __generate_file_name(self, sound_wave, file_name, type):
@@ -206,10 +206,7 @@ class SoundWaveFactory:
             return f"sound_wav_files/{file_name}.wav".replace("#", "s")
         else:
             raise ValueError("type parameter should be 'TXT' or 'WAV'")
-
-    
-    
-    
+        
 
     def __get_from_cache_or_add(self, duration_seconds, note, amplitude):
         """
